@@ -20,6 +20,7 @@ from word_to_markdown.scanner import scan_inputs
 from word_to_markdown.utils import ensure_clean_directory, relative_document_output
 
 LOGGER = logging.getLogger(__name__)
+DIRECT_CHILD_SPLIT_THRESHOLD = 3
 
 
 class InputValidationError(ValueError):
@@ -135,7 +136,26 @@ def export_chapter(chapter: HeadingNode, output_dir: Path) -> None:
     chapter_dir = output_dir / safe_title(chapter)
     chapter_dir.mkdir(parents=True, exist_ok=True)
 
-    if max_heading_level(chapter) <= 2 or not chapter.children:
+    if not chapter.children:
+        write_markdown_file(
+            target=chapter_dir / f"{safe_title(chapter)}.md",
+            blocks=flatten_subtree(chapter),
+            output_dir=output_dir,
+        )
+        return
+
+    if max_heading_level(chapter) <= 2:
+        if should_split_direct_children(chapter):
+            if chapter.content_blocks:
+                write_markdown_file(
+                    target=chapter_dir / f"{safe_title(chapter)}.md",
+                    blocks=flatten_node_summary(chapter),
+                    output_dir=output_dir,
+                )
+            for section in chapter.children:
+                export_second_level(section=section, chapter_dir=chapter_dir, output_dir=output_dir)
+            return
+
         write_markdown_file(
             target=chapter_dir / f"{safe_title(chapter)}.md",
             blocks=flatten_subtree(chapter),
@@ -179,6 +199,11 @@ def export_second_level(section: HeadingNode, chapter_dir: Path, output_dir: Pat
             blocks=flatten_subtree(leaf),
             output_dir=output_dir,
         )
+
+
+def should_split_direct_children(chapter: HeadingNode) -> bool:
+    leaf_children = [child for child in chapter.children if not child.children]
+    return len(chapter.children) == len(leaf_children) and len(leaf_children) >= DIRECT_CHILD_SPLIT_THRESHOLD
 
 
 def write_markdown_file(target: Path, blocks: list, output_dir: Path) -> None:

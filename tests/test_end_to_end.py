@@ -225,6 +225,40 @@ class EndToEndTests(unittest.TestCase):
             self.assertIn("### 2.1.1 代发提交", leaf_text)
             self.assertIn("#### 2.1.1.1 请求报文", leaf_text)
 
+    def test_split_many_second_level_children_into_multiple_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "appendix.docx"
+            output = root / "output"
+
+            document = Document()
+            document.add_heading("附录", level=1)
+            document.add_heading("4.1 证件类型", level=2)
+            document.add_paragraph("证件类型内容")
+            document.add_heading("4.2 制单状态", level=2)
+            document.add_paragraph("制单状态内容")
+            document.add_heading("4.3 交易类型", level=2)
+            document.add_paragraph("交易类型内容")
+            document.save(source)
+
+            batch, warnings = process_batch(
+                input_path=source,
+                output_root=output,
+                recursive=False,
+                split=True,
+                split_level=1,
+                extract_images=False,
+                doc_converter="auto",
+            )
+
+            self.assertEqual([], warnings)
+            result = batch.results[0]
+            appendix_dir = result.output_dir / "附录"
+            self.assertTrue((appendix_dir / "4.1 证件类型.md").exists())
+            self.assertTrue((appendix_dir / "4.2 制单状态.md").exists())
+            self.assertTrue((appendix_dir / "4.3 交易类型.md").exists())
+            self.assertFalse((appendix_dir / "附录.md").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
