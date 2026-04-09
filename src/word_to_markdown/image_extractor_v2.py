@@ -4,10 +4,8 @@ from docx import Document
 
 
 IMAGE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
-NS = {
-    'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
-    'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-}
+A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 
 
 def _safe_ext(content_type, default='.bin'):
@@ -64,9 +62,10 @@ def paragraph_image_rel_ids(paragraph):
     seen = set()
 
     for run in paragraph.runs:
-        drawing_elements = run._element.xpath('.//a:blip', namespaces=NS)
-        for blip in drawing_elements:
-            rel_id = blip.get('{%s}embed' % NS['r'])
+        for blip in run._element.iter():
+            if blip.tag != f'{{{A_NS}}}blip':
+                continue
+            rel_id = blip.get(f'{{{R_NS}}}embed')
             if rel_id and rel_id not in seen:
                 seen.add(rel_id)
                 rel_ids.append(rel_id)
